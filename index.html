@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Timetable + Flappy Birds</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body { font-family:'Space Grotesk',sans-serif; background:#0f172a; color:white; }
+.day-column { display:flex; flex-direction:column; background:#1e293b; border-radius:20px; padding:12px; min-height:400px; }
+.entry-card { margin-bottom:6px; border-left:4px solid; padding:6px 8px; cursor:pointer; border-radius:12px; transition: transform 0.2s; }
+.entry-card:hover { transform: translateY(-2px); }
+.add-btn { text-align:center; margin-top:6px; color:#94a3b8; cursor:pointer; font-size:14px; }
+.add-btn:hover { color:#10b981; }
+.modal-backdrop { background: rgba(0,0,0,0.5); position: fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:50; }
+#flappy-container { position: fixed; inset:0; background:black; display:flex; justify-content:center; align-items:center; z-index:60; display:none; }
+.toast { animation: slideIn 0.3s ease, fadeOut 0.3s ease 1.7s; padding:8px 12px; border-radius:12px; position:fixed; top:20px; right:20px; z-index:100; font-weight:bold; }
+@keyframes slideIn { from { transform: translateY(-20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+@keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+</style>
+</head>
+<body class="h-full overflow-auto">
+
+<div class="p-6">
+  <h1 class="text-3xl font-bold text-emerald-400 mb-4">Weekly Timetable</h1>
+
+  <div class="grid grid-cols-7 gap-3 mb-4" id="timetable-grid"></div>
+
+  <div class="flex gap-2 mt-4">
+    <button onclick="openPinPad()" class="bg-emerald-500 px-3 py-2 rounded-lg font-bold shadow-lg">Enter Secret Code</button>
+    <button onclick="openCacheModal()" class="bg-red-500 px-3 py-2 rounded-lg font-bold shadow-lg">Clear Cache</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal-backdrop hidden">
+  <div class="bg-slate-800 p-6 rounded-2xl w-80">
+    <h2 class="text-xl font-bold text-emerald-400 mb-4" id="modal-title">Add Entry</h2>
+    <form id="entry-form" class="flex flex-col gap-2">
+      <input type="hidden" id="entry-id">
+      <label>Day
+        <select id="entry-day" class="w-full bg-slate-700 text-white p-2 rounded-lg">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+        </select>
+      </label>
+      <div class="grid grid-cols-2 gap-2">
+        <label>Start <input type="time" id="entry-start" class="w-full bg-slate-700 text-white p-2 rounded-lg" required></label>
+        <label>End <input type="time" id="entry-end" class="w-full bg-slate-700 text-white p-2 rounded-lg" required></label>
+      </div>
+      <label>Activity <input type="text" id="entry-subject" class="w-full bg-slate-700 text-white p-2 rounded-lg" required></label>
+      <label>Location <input type="text" id="entry-location" class="w-full bg-slate-700 text-white p-2 rounded-lg"></label>
+      <label>Color <input type="color" id="entry-color" value="#10b981"></label>
+      <div class="flex gap-2 mt-2">
+        <button type="button" onclick="closeModal()" class="bg-slate-700 px-3 py-2 rounded-lg flex-1">Cancel</button>
+        <button type="submit" class="bg-emerald-500 px-3 py-2 rounded-lg flex-1">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Cache Confirmation Modal -->
+<div id="cache-modal" class="modal-backdrop hidden">
+  <div class="bg-slate-800 p-6 rounded-2xl w-72">
+    <h2 class="text-xl font-bold text-emerald-400 mb-4">Clear All Entries?</h2>
+    <p class="mb-4 text-slate-300">This will remove all your timetable entries permanently.</p>
+    <div class="flex gap-2">
+      <button onclick="confirmClearCache()" class="flex-1 bg-red-500 px-3 py-2 rounded-lg">Yes</button>
+      <button onclick="closeCacheModal()" class="flex-1 bg-slate-700 px-3 py-2 rounded-lg">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN Pad -->
+<div id="pin-pad" class="modal-backdrop hidden flex-col p-4">
+  <h3 class="text-emerald-400 font-bold mb-2">Enter PIN</h3>
+  <div id="pin-display" class="text-lg mb-2">●●●●</div>
+  <div class="grid grid-cols-3 gap-1 mb-2">
+    <button onclick="addPin('1')" class="bg-slate-700 p-2 rounded">1</button>
+    <button onclick="addPin('2')" class="bg-slate-700 p-2 rounded">2</button>
+    <button onclick="addPin('3')" class="bg-slate-700 p-2 rounded">3</button>
+    <button onclick="addPin('4')" class="bg-slate-700 p-2 rounded">4</button>
+    <button onclick="addPin('5')" class="bg-slate-700 p-2 rounded">5</button>
+    <button onclick="addPin('6')" class="bg-slate-700 p-2 rounded">6</button>
+    <button onclick="addPin('7')" class="bg-slate-700 p-2 rounded">7</button>
+    <button onclick="addPin('8')" class="bg-slate-700 p-2 rounded">8</button>
+    <button onclick="addPin('9')" class="bg-slate-700 p-2 rounded">9</button>
+  </div>
+  <div class="flex gap-1">
+    <button onclick="clearPin()" class="bg-red-500 p-2 rounded flex-1">Clear</button>
+    <button onclick="submitPin()" class="bg-emerald-500 p-2 rounded flex-1">Enter</button>
+    <button onclick="closePinPad()" class="bg-slate-700 p-2 rounded flex-1">Close</button>
+  </div>
+</div>
+
+<!-- Flappy Birds -->
+<div id="flappy-container">
+  <canvas id="flappy-canvas" width="800" height="400"></canvas>
+  <button onclick="closeFlappy()" class="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded z-10">Close</button>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ------------------------
+// Timetable Logic
+// ------------------------
+let entries = JSON.parse(localStorage.getItem('entries')||'[]');
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+let editing = null;
+
+function save(){ localStorage.setItem('entries',JSON.stringify(entries)); }
+
+function render(){
+  const grid = document.getElementById('timetable-grid');
+  grid.innerHTML='';
+  days.forEach(day=>{
+    const col = document.createElement('div'); col.className='day-column';
+    const header = document.createElement('h3'); header.textContent=day; header.className='text-center font-bold text-emerald-400 mb-2';
+    col.appendChild(header);
+
+    const dayEntries = entries.filter(e=>e.day===day).sort((a,b)=>a.start.localeCompare(b.start));
+    dayEntries.forEach(e=>{
+      const card = document.createElement('div'); card.className='entry-card';
+      card.style.borderColor = e.color; card.style.backgroundColor = e.color+'33';
+      card.innerHTML=`<div class="text-xs">${e.start} - ${e.end}</div><div class="font-medium">${e.subject}</div>${e.location?'<div class="text-xs">📍 '+e.location+'</div>':''}`;
+      card.onclick=()=>openModal(day,e);
+      col.appendChild(card);
+    });
+
+    const addBtn = document.createElement('div'); addBtn.textContent='+ Add'; addBtn.className='add-btn';
+    addBtn.onclick=()=>openModal(day);
+    col.appendChild(addBtn);
+
+    const clearBtn = document.createElement('button'); clearBtn.textContent='Clear All'; clearBtn.className='mt-2 bg-red-500 text-white rounded-lg py-1 text-sm';
+    clearBtn.onclick=()=>{ entries=entries.filter(e=>e.day!==day); save(); render(); showToast('Cleared '+day,'success'); };
+    col.appendChild(clearBtn);
+
+    grid.appendChild(col);
+  });
+}
+
+function openModal(day,e=null){
+  editing=e;
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal-title').textContent = e?'Edit Entry':'Add Entry';
+  document.getElementById('entry-id').value = e?e.id:'';
+  document.getElementById('entry-day').value = day;
+  document.getElementById('entry-start').value = e?e.start:'';
+  document.getElementById('entry-end').value = e?e.end:'';
+  document.getElementById('entry-subject').value = e?e.subject:'';
+  document.getElementById('entry-location').value = e?e.location:'';
+  document.getElementById('entry-color').value = e?e.color:'#10b981';
+}
+function closeModal(){ document.getElementById('modal').classList.add('hidden'); editing=null; }
+
+document.getElementById('entry-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const newEntry = {
+    id: editing?editing.id:Date.now(),
+    day: document.getElementById('entry-day').value,
+    start: document.getElementById('entry-start').value,
+    end: document.getElementById('entry-end').value,
+    subject: document.getElementById('entry-subject').value,
+    location: document.getElementById('entry-location').value,
+    color: document.getElementById('entry-color').value
+  };
+  if(editing){ entries = entries.map(en=>en.id===editing.id?newEntry:en); } else { entries.push(newEntry); }
+  save(); render(); closeModal();
+});
+
+render();
+
+// ------------------------
+// Cache Modal Logic
+// ------------------------
+function openCacheModal(){ document.getElementById('cache-modal').classList.remove('hidden'); }
+function closeCacheModal(){ document.getElementById('cache-modal').classList.add('hidden'); }
+function confirmClearCache(){ entries=[]; save(); render(); closeCacheModal(); showToast('All entries cleared','success'); }
+
+// ------------------------
+// Secret PIN & Flappy Birds
+// ------------------------
+let pin=''; const correctPin='2345';
+function openPinPad(){ pin=''; updatePin(); document.getElementById('pin-pad').classList.remove('hidden'); }
+function closePinPad(){ pin=''; updatePin(); document.getElementById('pin-pad').classList.add('hidden'); }
+function addPin(n){ if(pin.length<4) pin+=n; updatePin(); }
+function clearPin(){ pin=''; updatePin(); }
+function updatePin(){ document.getElementById('pin-display').textContent='●'.repeat(pin.length)+'○'.repeat(4-pin.length); }
+function submitPin(){ if(pin===correctPin){ closePinPad(); startFlappy(); } else { showToast('Wrong PIN','error'); pin=''; updatePin(); } }
+
+// Toast
+function showToast(msg,type='success'){
+  const container=document.getElementById('toast-container');
+  const t=document.createElement('div'); t.className='toast '+(type==='success'?'bg-emerald-500':'bg-red-500'); t.textContent=msg;
+  container.appendChild(t); setTimeout(()=>t.remove(),2000);
+}
+
+// ------------------------
+// Flappy Birds
+// ------------------------
+let flappyInterval,bird,pipes,score;
+function startFlappy(){
+  document.getElementById('flappy-container').style.display='flex';
+  const c=document.getElementById('flappy-canvas'); const ctx=c.getContext('2d');
+  bird={x:50,y:200,vy:0,width:30,height:30};
+  pipes=[{x:c.width, y:Math.random()*(c.height-120-50)+50}]; score=0;
+
+  function loop(){
+    ctx.fillStyle='black'; ctx.fillRect(0,0,c.width,c.height);
+
+    bird.vy+=0.6; bird.y+=bird.vy;
+    ctx.fillStyle='yellow'; ctx.fillRect(bird.x,bird.y,bird.width,bird.height);
+
+    for(let p of pipes){
+      p.x-=2;
+      ctx.fillStyle='green';
+      ctx.fillRect(p.x,0,50,p.y);
+      ctx.fillRect(p.x,p.y+120,50,c.height-p.y-120);
+
+      if(bird.x+bird.width>p.x && bird.x<p.x+50 && (bird.y<p.y || bird.y+bird.height>p.y+120)){ gameOver(); return; }
+    }
+
+    if(pipes[0].x+50<0){ pipes.shift(); pipes.push({x:c.width, y:Math.random()*(c.height-120-50)+50}); score++; }
+
+    ctx.fillStyle='white'; ctx.font='20px sans-serif'; ctx.fillText('Score: '+score,10,30);
+
+    if(bird.y<0 || bird.y+bird.height>c.height){ gameOver(); return; }
+  }
+
+  flappyInterval=setInterval(loop,20);
+  document.addEventListener('keydown',fly);
+
+  function fly(e){ if(e.code==='Space'){ bird.vy=-10; } }
+
+  function gameOver(){
+    clearInterval(flappyInterval);
+    showToast('Game Over','error');
+    closeFlappy();
+  }
+}
+
+function closeFlappy(){ document.getElementById('flappy-container').style.display='none'; clearInterval(flappyInterval); }
+
+</script>
+</body>
+</html>
